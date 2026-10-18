@@ -1,6 +1,6 @@
 # Hashkeeper
 
-A **local-first, zero-knowledge** password manager for Windows. Passwords are encrypted and decrypted **client-side only (Tray app or browser), never on the server**. Cloud sync and the web dashboard are **optional and disabled by default**. When enabled, the server stores only encrypted data and never sees your passwords or your Master Password.
+A **local-first, zero-knowledge** password manager for Windows. Passwords are encrypted and decrypted **client-side only (Tray app or browser), never on the server**. Cloud sync and the web dashboard are **optional and disabled by default**. When enabled, all vault data on the server is encrypted, and the server never sees your passwords or your Master Password. Account and session data (e.g. email, device list, refresh tokens, a hashed authentication value) are stored as regular server-side records.
 
 The project consists of three parts:
 
@@ -136,22 +136,26 @@ A website for "spring cleaning" of your passwords and security checks. Available
 2. **Vault Key** – a random key generated when the vault is created. Stored (locally and, with sync, on the server) only in a form encrypted with the Master Key.
 3. **Entries** – each entry is encrypted separately with the Vault Key (XChaCha20-Poly1305).
 
+Every encryption – of each entry and of the wrapped Vault Key – uses a **fresh random 24-byte nonce**, which is stored and transmitted together with its ciphertext. A nonce is never reused with the same key, since that would break both confidentiality and authentication. The exact binary format will be defined in a crypto spec shared by the C# and TypeScript implementations.
+
 Thanks to the separate Vault Key, changing the Master Password only requires re-encrypting a single key, not the whole vault.
 
 ### Where encryption happens
 
-All encryption and decryption is **client-side** – in the Tray app or in the browser (JavaScript + libsodium in the Dashboard tab). The server only ever receives the authentication hash and encrypted blobs; the Master Password, keys and plaintext passwords never reach it.
+All encryption and decryption is **client-side** – in the Tray app or in the browser (JavaScript + libsodium in the Dashboard tab). Apart from account metadata, the server only ever receives the authentication hash and encrypted blobs; the Master Password, keys and plaintext passwords never reach it.
 
 ### Sign-in without revealing the password (sync mode)
 
-Neither the Master Password nor the Master Key is ever sent to the server. The client derives a separate **authentication hash** from the Master Key (e.g. via HKDF), which the server hashes again and compares. A leaked server database gives no access to encryption keys.
+Neither the Master Password nor the Master Key is ever sent to the server. The client derives a separate **authentication hash** from the Master Key (e.g. via HKDF), which the server hashes again and compares.
+
+This prevents **direct** disclosure of keys: a leaked server database contains no Master Key or plaintext Vault Key. It does **not** rule out offline attacks – the stored verifier is derived from the Master Password, so an attacker can try to guess the password offline. A successful guess yields the Master Key, which unwraps the Vault Key and decrypts the vault. Argon2id (on the client) and re-hashing (on the server) make each guess expensive, but a weak Master Password remains the main risk – hence a strong Master Password is essential.
 
 ### Important consequences
 
 - **No password recovery.** Losing the Master Password means losing access to the vault. A recovery key generated at vault creation may be considered.
 - **Local mode has no backup by default.** If sync is disabled, the user is responsible for backing up the local vault file (the app can offer an encrypted export).
 - **Remote logout is best effort.** The server revokes the session immediately, but an offline device will lock only after it reconnects (or after its local timeout).
-- **Trust in the Dashboard.** The page code is served by the server, so a compromised server could tamper with the JavaScript. This is mitigated by a strict CSP, Subresource Integrity and no third-party scripts. Users who don't want this trade-off simply keep sync disabled.
+- **Trust in the Dashboard.** The page code is served by the server, and the Dashboard handles the Master Password. A compromised or malicious server can replace the HTML, JavaScript, CSP and SRI metadata it serves – and thereby capture the Master Password. **This cannot be mitigated by the page itself**: using the Dashboard means trusting the server that serves it. A strict CSP, Subresource Integrity and no third-party scripts only reduce unrelated risks (script injection, compromised third-party code). Users who don't want this trade-off simply keep sync disabled and use only the Tray app.
 - **Have I Been Pwned** (Dashboard only) – the k-anonymity API is used: only the first 5 characters of the SHA-1 hash are sent, never the password or the full hash.
 
 ---
@@ -171,7 +175,7 @@ Neither the Master Password nor the Master Key is ever sent to the server. The c
 
 ### Cryptography
 
-The same library – **libsodium** – is used on both sides, so the Windows app and the browser produce byte-compatible ciphertext.
+The two sides use different libraries, both built on **libsodium**: NSec (a .NET wrapper over native libsodium) in the Tray app and libsodium-wrappers-sumo (libsodium compiled to WebAssembly) in the browser. Compatibility comes from using the same algorithms, parameters and ciphertext format (defined in the crypto spec), not from sharing code.
 
 | Purpose | Algorithm | .NET | Web |
 |---|---|---|---|
