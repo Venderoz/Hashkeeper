@@ -248,14 +248,14 @@ ASP.NET Core Identity is intentionally not used – clients never send the actua
         │
         └──────────────► Hashkeeper.Contracts ◄────── Hashkeeper.Api ──► PostgreSQL
                                                             │
- hashkeeper-web ── HTTP + SignalR ──────────────────────────┤
+ dashboard ── HTTP + SignalR ───────────────────────────────┤
         ▲                                                   │
         └──────── TS types generated from OpenAPI ──────────┘
 ```
 
 - **Hashkeeper.Crypto** is used only by the Tray app. The API never encrypts or decrypts vault data, so it does not reference it.
 - **Hashkeeper.Contracts** holds the request/response DTOs shared by the Tray app and the API.
-- **hashkeeper-web** cannot reference .NET libraries: it gets API types generated from the OpenAPI spec and has its own TypeScript crypto module, kept compatible with `Hashkeeper.Crypto` by shared test vectors.
+- **dashboard** cannot reference .NET libraries: it gets API types generated from the OpenAPI spec and has its own TypeScript crypto module, kept compatible with `Hashkeeper.Crypto` by shared test vectors.
 
 ### Windows App (Tray) – MVVM
 
@@ -278,7 +278,7 @@ Hashkeeper/
 │   ├── Hashkeeper.Contracts/   # DTOs shared by Tray and API
 │   ├── Hashkeeper.Tray/        # Windows app (WPF)
 │   ├── Hashkeeper.Api/         # Backend API (ASP.NET Core)
-│   └── hashkeeper-web/         # Web Dashboard (Vite + React + TS)
+│   └── dashboard/              # Web Dashboard (Vite + React + TS)
 ├── tests/
 │   ├── Hashkeeper.Crypto.Tests/
 │   ├── Hashkeeper.Tray.Tests/  # ViewModels and services
