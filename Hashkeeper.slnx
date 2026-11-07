@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Hashkeeper.Api/Hashkeeper.Api.csproj" />
+    <Project Path="src/Hashkeeper.Contracts/Hashkeeper.Contracts.csproj" />
+    <Project Path="src/Hashkeeper.Crypto/Hashkeeper.Crypto.csproj" />
+    <Project Path="src/Hashkeeper.Tray/Hashkeeper.Tray.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Hashkeeper.Api.Tests/Hashkeeper.Api.Tests.csproj" />
+    <Project Path="tests/Hashkeeper.Crypto.Tests/Hashkeeper.Crypto.Tests.csproj" />
+    <Project Path="tests/Hashkeeper.Tray.Tests/Hashkeeper.Tray.Tests.csproj" />
+  </Folder>
+</Solution>
