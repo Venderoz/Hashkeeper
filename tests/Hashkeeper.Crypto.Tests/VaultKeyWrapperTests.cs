@@ -4,7 +4,7 @@ namespace Hashkeeper.Crypto.Tests;
 
 public class VaultKeyWrapperTests
 {
-    private static byte[] NewMasterKey() => RandomNumberGenerator.GetBytes(VaultKeyWrapper.KeySize);
+    private static byte[] NewWrapKey() => RandomNumberGenerator.GetBytes(VaultKeyWrapper.KeySize);
 
     [Fact]
     public void GenerateVaultKey_ReturnsRandom32ByteKeys()
@@ -21,10 +21,10 @@ public class VaultKeyWrapperTests
     public void Wrap_ThenUnwrap_ReturnsOriginalKey()
     {
         var vaultKey = VaultKeyWrapper.GenerateVaultKey();
-        var masterKey = NewMasterKey();
+        var wrapKey = NewWrapKey();
 
-        var wrapped = VaultKeyWrapper.Wrap(vaultKey, masterKey);
-        var unwrapped = VaultKeyWrapper.Unwrap(wrapped, masterKey);
+        var wrapped = VaultKeyWrapper.Wrap(vaultKey, wrapKey);
+        var unwrapped = VaultKeyWrapper.Unwrap(wrapped, wrapKey);
 
         Assert.Equal(vaultKey, unwrapped);
     }
@@ -32,7 +32,7 @@ public class VaultKeyWrapperTests
     [Fact]
     public void Wrap_ProducesVersionedOutputOfExpectedSize()
     {
-        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), NewMasterKey());
+        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), NewWrapKey());
 
         Assert.Equal(VaultKeyWrapper.WrappedSize, wrapped.Length);
         Assert.Equal(VaultKeyWrapper.FormatVersion, wrapped[0]);
@@ -43,7 +43,7 @@ public class VaultKeyWrapperTests
     {
         var vaultKey = VaultKeyWrapper.GenerateVaultKey();
 
-        var wrapped = VaultKeyWrapper.Wrap(vaultKey, NewMasterKey());
+        var wrapped = VaultKeyWrapper.Wrap(vaultKey, NewWrapKey());
 
         Assert.Equal(-1, wrapped.AsSpan().IndexOf(vaultKey));
     }
@@ -52,21 +52,21 @@ public class VaultKeyWrapperTests
     public void Wrap_SameKeyTwice_UsesFreshNonceEachTime()
     {
         var vaultKey = VaultKeyWrapper.GenerateVaultKey();
-        var masterKey = NewMasterKey();
+        var wrapKey = NewWrapKey();
 
-        var first = VaultKeyWrapper.Wrap(vaultKey, masterKey);
-        var second = VaultKeyWrapper.Wrap(vaultKey, masterKey);
+        var first = VaultKeyWrapper.Wrap(vaultKey, wrapKey);
+        var second = VaultKeyWrapper.Wrap(vaultKey, wrapKey);
 
         Assert.NotEqual(first, second);
         Assert.NotEqual(first.AsSpan(1, 24).ToArray(), second.AsSpan(1, 24).ToArray());
     }
 
     [Fact]
-    public void Unwrap_WithWrongMasterKey_Throws()
+    public void Unwrap_WithWrongWrapKey_Throws()
     {
-        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), NewMasterKey());
+        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), NewWrapKey());
 
-        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(wrapped, NewMasterKey()));
+        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(wrapped, NewWrapKey()));
     }
 
     [Theory]
@@ -76,23 +76,23 @@ public class VaultKeyWrapperTests
     [InlineData(VaultKeyWrapper.WrappedSize - 1)] // last tag byte
     public void Unwrap_TamperedData_Throws(int index)
     {
-        var masterKey = NewMasterKey();
-        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), masterKey);
+        var wrapKey = NewWrapKey();
+        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), wrapKey);
 
         wrapped[index] ^= 0x01;
 
-        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(wrapped, masterKey));
+        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(wrapped, wrapKey));
     }
 
     [Fact]
     public void Unwrap_UnsupportedVersion_Throws()
     {
-        var masterKey = NewMasterKey();
-        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), masterKey);
+        var wrapKey = NewWrapKey();
+        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), wrapKey);
 
         wrapped[0] = 2;
 
-        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(wrapped, masterKey));
+        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(wrapped, wrapKey));
     }
 
     [Theory]
@@ -101,23 +101,23 @@ public class VaultKeyWrapperTests
     [InlineData(VaultKeyWrapper.WrappedSize + 1)]
     public void Unwrap_InvalidLength_Throws(int length)
     {
-        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(new byte[length], NewMasterKey()));
+        Assert.Throws<CryptographicException>(() => VaultKeyWrapper.Unwrap(new byte[length], NewWrapKey()));
     }
 
     [Theory]
     [InlineData(16, 32)]
     [InlineData(32, 31)]
     [InlineData(32, 0)]
-    public void Wrap_InvalidKeyLength_Throws(int vaultKeyLength, int masterKeyLength)
+    public void Wrap_InvalidKeyLength_Throws(int vaultKeyLength, int wrapKeyLength)
     {
         Assert.Throws<ArgumentException>(
-            () => VaultKeyWrapper.Wrap(new byte[vaultKeyLength], new byte[masterKeyLength]));
+            () => VaultKeyWrapper.Wrap(new byte[vaultKeyLength], new byte[wrapKeyLength]));
     }
 
     [Fact]
-    public void Unwrap_InvalidMasterKeyLength_Throws()
+    public void Unwrap_InvalidWrapKeyLength_Throws()
     {
-        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), NewMasterKey());
+        var wrapped = VaultKeyWrapper.Wrap(VaultKeyWrapper.GenerateVaultKey(), NewWrapKey());
 
         Assert.Throws<ArgumentException>(() => VaultKeyWrapper.Unwrap(wrapped, new byte[16]));
     }

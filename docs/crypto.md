@@ -6,26 +6,46 @@ This document is the single source of truth for every cryptographic operation in
 
 The keywords MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
+## Decisions at a glance
+
+Every decision below is either an established standard or follows a design that has been publicly audited (mainly Bitwarden). Hashkeeper deliberately invents no cryptography of its own.
+
+| Decision | Choice | Basis | Review status |
+|---|---|---|---|
+| Password hashing | Argon2id | RFC 9106, OWASP Password Storage Cheat Sheet | standard |
+| Argon2id cost | t = 3, 64 MiB, p = 1 | RFC 9106 second recommended option; p = 1 is the libsodium/NSec limit | standard minimum, can be raised later (§4.2) |
+| Password normalisation | Unicode NFKC, then UTF-8 | NIST SP 800-63B §5.1.1.2 | standard |
+| Key hierarchy | random Vault Key wrapped by a key derived from the Master Password | Bitwarden Security Whitepaper | audited design |
+| Subkeys from the Master Key | HKDF-SHA256, one label per purpose | RFC 5869; Bitwarden stretches its master key the same way | standard |
+| Sign-in | client-derived Auth Hash, re-hashed by the server | Bitwarden Security Whitepaper | audited design |
+| Encryption | XChaCha20-Poly1305 with a random 24-byte nonce | libsodium recommendation for random nonces | standard |
+| Entry ID in associated data | yes | common AEAD practice; Bitwarden does not do it | our choice, low risk (§7.2) |
+| Format versioning | version byte + stored KDF parameters | common practice | standard |
+
 ---
 
 ## 1. Overview
 
 ```
- Master Password ──(NFC, UTF-8)──► Argon2id(salt, params) ──► Master Key (32 B)
-                                                                 │
-                                   ┌─────────────────────────────┼──────────────────────────────┐
-                                   ▼                             ▼                              │
-                     HKDF-SHA256("hashkeeper:v1:auth-hash")    XChaCha20-Poly1305 unwrap        │
-                                   │                             │                              │
-                                   ▼                             ▼                              │
-                         Auth Hash (32 B) ──► server     Vault Key (32 B, random) ──► encrypts each entry
-                         (server re-hashes it)           (stored only wrapped)        (XChaCha20-Poly1305)
+ Master Password ──(NFKC, UTF-8)──► Argon2id(salt, params) ──► Master Key (32 B)
+                                                                   │
+                                   ┌───────────────────────────────┴──────────────┐
+                                   ▼                                              ▼
+                  HKDF-SHA256("hashkeeper:v1:auth-hash")        HKDF-SHA256("hashkeeper:v1:vault-key-wrap")
+                                   │                                              │
+                                   ▼                                              ▼
+                         Auth Hash (32 B) ──► server                    Wrap Key (32 B)
+                         (server re-hashes it)                                    │ XChaCha20-Poly1305 unwrap
+                                                                                  ▼
+                                                        Vault Key (32 B, random) ──► encrypts each entry
+                                                        (stored only wrapped)        (XChaCha20-Poly1305)
 ```
 
 | Value | Size | Where it exists | Leaves the client? |
 |---|---|---|---|
 | Master Password | – | typed by the user, memory only | never |
-| Master Key | 32 B | memory only, while deriving / unwrapping | never |
+| Master Key | 32 B | memory only, while deriving subkeys | never |
+| Wrap Key | 32 B | memory only, while wrapping / unwrapping | never |
 | Vault Key | 32 B | memory only, while the vault is unlocked | only wrapped |
 | Wrapped Vault Key | 73 B | local vault; server (sync mode) | yes |
 | Auth Hash | 32 B | memory only; sent at sign-in / registration | yes (sync mode) |
@@ -55,15 +75,17 @@ No other algorithms are allowed. In particular, never use `Random`, `Math.random
 ## 4. Master Key derivation (normative)
 
 ```
-masterKey = Argon2id(password = UTF8(NFC(masterPassword)), salt, t, m, p = 1, length = 32)
+masterKey = Argon2id(password = UTF8(NFKC(masterPassword)), salt, t, m, p = 1, length = 32)
 ```
+
+The Master Key is never used directly as an encryption key; it is only the input for the subkeys in §5.
 
 ### 4.1 Password normalisation
 
-The Master Password MUST be normalised to Unicode **NFC** and then encoded as UTF-8. It MUST NOT be trimmed, lower-cased or otherwise altered.
+The Master Password MUST be normalised to Unicode **NFKC** (as recommended by NIST SP 800-63B §5.1.1.2) and then encoded as UTF-8. It MUST NOT be trimmed, lower-cased or otherwise altered.
 
-- C#: `Encoding.UTF8.GetBytes(password.Normalize(NormalizationForm.FormC))`, then use the `ReadOnlySpan<byte>` overload of `DeriveBytes` (not the `string` overload).
-- TS: `new TextEncoder().encode(password.normalize("NFC"))`.
+- C#: `Encoding.UTF8.GetBytes(password.Normalize(NormalizationForm.FormKC))`, then use the `ReadOnlySpan<byte>` overload of `DeriveBytes` (not the `string` overload).
+- TS: `new TextEncoder().encode(password.normalize("NFKC"))`.
 
 Without normalisation, the same password typed on different systems (e.g. `ą` as one code point vs. `a` + combining ogonek) would produce different keys.
 
@@ -96,16 +118,27 @@ Defaults follow the RFC 9106 "second recommended option" (t = 3, 64 MiB), with p
 }
 ```
 
-## 5. Auth Hash derivation (normative)
+## 5. Subkey derivation: Auth Hash and Wrap Key (normative)
 
 ```
-authHash = HKDF-SHA256(IKM = masterKey, salt = "" (empty), info = "hashkeeper:v1:auth-hash", L = 32)
+authHash = HKDF-SHA256(IKM = masterKey, salt = "" (empty), info = "hashkeeper:v1:auth-hash",      L = 32)
+wrapKey  = HKDF-SHA256(IKM = masterKey, salt = "" (empty), info = "hashkeeper:v1:vault-key-wrap", L = 32)
 ```
 
-- The empty salt is equivalent to 32 zero bytes (RFC 5869 §2.2). C#: `KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(masterKey, ReadOnlySpan<byte>.Empty, info, 32)`. WebCrypto: `deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info }, ikm, 256)`.
-- The Auth Hash is sent to the server instead of any password or key (registration, sign-in, re-authentication). Because HKDF is one-way, it reveals nothing about the Master Key.
+- The empty salt is equivalent to 32 zero bytes (RFC 5869 §2.2). The Master Key is already uniformly random, so no extra salt is needed.
+- C#: `KeyDerivationAlgorithm.HkdfSha256.DeriveBytes(masterKey, ReadOnlySpan<byte>.Empty, info, 32)`.
+- WebCrypto: `deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info }, ikm, 256)`, where `ikm` is the Master Key imported with `importKey("raw", masterKey, "HKDF", false, ["deriveBits"])`.
+- Different `info` labels make the two outputs independent: knowing the Auth Hash reveals nothing about the Wrap Key or the Master Key.
+
+### 5.1 Auth Hash
+
+- The Auth Hash is sent to the server instead of any password or key (registration, sign-in, re-authentication).
 - The server MUST NOT store it as-is: it re-hashes it with its own Argon2id and random per-user salt (server-side parameters are not part of this spec and may differ from the client's).
 - Note: the stored verifier is still derived from the Master Password, so a leaked server database allows offline guessing of weak passwords. See the README security model.
+
+### 5.2 Wrap Key
+
+The Wrap Key is used only to wrap and unwrap the Vault Key (§6). It never leaves the client and is cleared right after use.
 
 ## 6. Vault Key and its wrapping (normative)
 
@@ -115,7 +148,7 @@ The Vault Key is **32 random bytes** from the CSPRNG, generated once when the va
 
 ```
 nonce   = random(24)
-ct||tag = XChaCha20-Poly1305-Encrypt(key = masterKey, nonce, ad = "hashkeeper:vault-key:v1", plaintext = vaultKey)
+ct||tag = XChaCha20-Poly1305-Encrypt(key = wrapKey, nonce, ad = "hashkeeper:vault-key:v1", plaintext = vaultKey)
 wrapped = 0x01 || nonce || ct || tag
 ```
 
@@ -186,6 +219,7 @@ A failure MUST be reported as a corrupted entry; it MUST NOT abort decryption of
 | Label | Used as | Section |
 |---|---|---|
 | `hashkeeper:v1:auth-hash` | HKDF `info` | §5 |
+| `hashkeeper:v1:vault-key-wrap` | HKDF `info` | §5 |
 | `hashkeeper:vault-key:v1` | AEAD associated data | §6 |
 | `hashkeeper:entry:v1:<entryId>` | AEAD associated data | §7 |
 
@@ -195,20 +229,20 @@ Each label is used for exactly one purpose. New purposes MUST get a new label.
 
 ### Create vault (first run)
 1. Generate `salt` (16 B) and use the default KDF parameters.
-2. Derive `masterKey` (§4); generate `vaultKey` (§6).
-3. Store the KDF descriptor and `wrap(vaultKey, masterKey)` as vault metadata.
+2. Derive `masterKey` (§4), then `wrapKey` (§5); generate `vaultKey` (§6).
+3. Store the KDF descriptor and `wrap(vaultKey, wrapKey)` as vault metadata.
 4. Sync mode only: also derive `authHash` (§5) and register with email, `authHash`, KDF descriptor and wrapped Vault Key.
 
 ### Unlock
 1. Read the KDF descriptor (locally, or from `/auth/prelogin` in the Dashboard); validate it (§4.2).
-2. Derive `masterKey`, unwrap the Vault Key. On failure, show the generic error.
+2. Derive `masterKey` and `wrapKey`, unwrap the Vault Key. On failure, show the generic error.
 3. Sync mode / Dashboard: derive `authHash` and sign in.
-4. Clear `masterKey` from memory; keep only `vaultKey` while unlocked.
+4. Clear `masterKey` and `wrapKey` from memory; keep only `vaultKey` while unlocked.
 
 ### Change Master Password
 1. Unlock with the current password (proves knowledge of it).
-2. Generate a **new** salt, derive a new `masterKey` with the current default parameters.
-3. Re-wrap the **same** `vaultKey`; entries are not re-encrypted.
+2. Generate a **new** salt, derive a new `masterKey` and `wrapKey` with the current default parameters.
+3. Re-wrap the **same** `vaultKey` with the new `wrapKey`; entries are not re-encrypted.
 4. Sync mode: derive the new `authHash` and update it on the server together with the new KDF descriptor and wrapped Vault Key, in one request.
 
 ### Lock
@@ -234,13 +268,13 @@ Clear `vaultKey` and all decrypted entries from memory.
 ```json
 {
   "masterKey":   [{ "password": "…", "salt": "…", "iterations": 3, "memoryKiB": 65536, "masterKey": "…" }],
-  "authHash":    [{ "masterKey": "…", "authHash": "…" }],
-  "vaultKeyWrap":[{ "masterKey": "…", "vaultKey": "…", "nonce": "…", "wrapped": "…" }],
+  "subkeys":     [{ "masterKey": "…", "authHash": "…", "wrapKey": "…" }],
+  "vaultKeyWrap":[{ "wrapKey": "…", "vaultKey": "…", "nonce": "…", "wrapped": "…" }],
   "entry":       [{ "vaultKey": "…", "entryId": "…", "plaintext": "…", "nonce": "…", "encrypted": "…" }]
 }
 ```
 
-Vectors MUST include a non-ASCII password (to check NFC + UTF-8) and an empty-string plaintext. Production code never accepts a caller-supplied nonce; tests reach a fixed-nonce code path through an internal API only.
+Vectors MUST include a non-ASCII password (to check NFKC + UTF-8) and an empty-string plaintext. Production code never accepts a caller-supplied nonce; tests reach a fixed-nonce code path through an internal API only.
 
 ## 14. Out of scope / known limitations (v1)
 
