@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: .NET build and test
+    # Windows runner: Hashkeeper.Tray is a WPF app and needs the Windows Desktop SDK.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Hashkeeper.slnx
+
+      - name: Build
+        run: dotnet build Hashkeeper.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Hashkeeper.slnx --configuration Release --no-build --logger "trx;LogFilePrefix=results" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
