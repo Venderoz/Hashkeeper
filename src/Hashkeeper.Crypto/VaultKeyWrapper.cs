@@ -7,7 +7,7 @@ namespace Hashkeeper.Crypto;
 /// Generates the Vault Key and wraps (encrypts) it with the Master Key using XChaCha20-Poly1305.
 /// </summary>
 /// <remarks>
-/// Wrapped format, <see cref="WrappedSize"/> bytes:
+/// Implements section 6 of docs/crypto.md. Wrapped format, <see cref="WrappedSize"/> bytes:
 /// <c>version (1) || nonce (24) || ciphertext (32) || tag (16)</c>.
 /// Every wrap uses a fresh random nonce. Keys are raw 32-byte values; callers own them and
 /// should clear them with <see cref="CryptographicOperations.ZeroMemory"/> when done.
