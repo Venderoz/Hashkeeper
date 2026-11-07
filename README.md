@@ -136,7 +136,7 @@ A website for "spring cleaning" of your passwords and security checks. Available
 2. **Vault Key** – a random key generated when the vault is created. Stored (locally and, with sync, on the server) only in a form encrypted with the Master Key.
 3. **Entries** – each entry is encrypted separately with the Vault Key (XChaCha20-Poly1305).
 
-Every encryption – of each entry and of the wrapped Vault Key – uses a **fresh random 24-byte nonce**, which is stored and transmitted together with its ciphertext. A nonce is never reused with the same key, since that would break both confidentiality and authentication. The exact binary format will be defined in a crypto spec shared by the C# and TypeScript implementations.
+Every encryption – of each entry and of the wrapped Vault Key – uses a **fresh random 24-byte nonce**, which is stored and transmitted together with its ciphertext. A nonce is never reused with the same key, since that would break both confidentiality and authentication. Parameters, labels and binary formats are defined in the [crypto spec](docs/crypto.md), shared by the C# and TypeScript implementations.
 
 Thanks to the separate Vault Key, changing the Master Password only requires re-encrypting a single key, not the whole vault.
 

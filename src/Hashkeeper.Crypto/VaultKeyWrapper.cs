@@ -4,11 +4,12 @@ using NSec.Cryptography;
 namespace Hashkeeper.Crypto;
 
 /// <summary>
-/// Generates the Vault Key and wraps (encrypts) it with the Master Key using XChaCha20-Poly1305.
+/// Generates the Vault Key and wraps (encrypts) it with the Wrap Key using XChaCha20-Poly1305.
 /// </summary>
 /// <remarks>
-/// Wrapped format, <see cref="WrappedSize"/> bytes:
-/// <c>version (1) || nonce (24) || ciphertext (32) || tag (16)</c>.
+/// Implements section 6 of docs/crypto.md. The Wrap Key is derived from the Master Key with
+/// HKDF (section 5); the Master Key itself is never passed here. Wrapped format,
+/// <see cref="WrappedSize"/> bytes: <c>version (1) || nonce (24) || ciphertext (32) || tag (16)</c>.
 /// Every wrap uses a fresh random nonce. Keys are raw 32-byte values; callers own them and
 /// should clear them with <see cref="CryptographicOperations.ZeroMemory"/> when done.
 /// </remarks>
@@ -31,12 +32,12 @@ public static class VaultKeyWrapper
     /// <summary>Generates a new random 32-byte Vault Key.</summary>
     public static byte[] GenerateVaultKey() => RandomNumberGenerator.GetBytes(KeySize);
 
-    /// <summary>Encrypts <paramref name="vaultKey"/> with <paramref name="masterKey"/>.</summary>
+    /// <summary>Encrypts <paramref name="vaultKey"/> with <paramref name="wrapKey"/>.</summary>
     /// <exception cref="ArgumentException">A key is not <see cref="KeySize"/> bytes long.</exception>
-    public static byte[] Wrap(ReadOnlySpan<byte> vaultKey, ReadOnlySpan<byte> masterKey)
+    public static byte[] Wrap(ReadOnlySpan<byte> vaultKey, ReadOnlySpan<byte> wrapKey)
     {
         EnsureKeySize(vaultKey, nameof(vaultKey));
-        using var key = ImportMasterKey(masterKey);
+        using var key = ImportWrapKey(wrapKey);
 
         var wrapped = new byte[WrappedSize];
         wrapped[0] = FormatVersion;
@@ -46,12 +47,12 @@ public static class VaultKeyWrapper
         return wrapped;
     }
 
-    /// <summary>Decrypts a wrapped Vault Key with <paramref name="masterKey"/>.</summary>
-    /// <exception cref="ArgumentException"><paramref name="masterKey"/> is not <see cref="KeySize"/> bytes long.</exception>
+    /// <summary>Decrypts a wrapped Vault Key with <paramref name="wrapKey"/>.</summary>
+    /// <exception cref="ArgumentException"><paramref name="wrapKey"/> is not <see cref="KeySize"/> bytes long.</exception>
     /// <exception cref="CryptographicException">
-    /// The Master Key is wrong, or the wrapped data is corrupted, truncated or in an unsupported format.
+    /// The Wrap Key is wrong, or the wrapped data is corrupted, truncated or in an unsupported format.
     /// </exception>
-    public static byte[] Unwrap(ReadOnlySpan<byte> wrapped, ReadOnlySpan<byte> masterKey)
+    public static byte[] Unwrap(ReadOnlySpan<byte> wrapped, ReadOnlySpan<byte> wrapKey)
     {
         if (wrapped.Length != WrappedSize)
         {
@@ -63,21 +64,21 @@ public static class VaultKeyWrapper
             throw new CryptographicException($"Unsupported wrapped Vault Key version: {wrapped[0]}.");
         }
 
-        using var key = ImportMasterKey(masterKey);
+        using var key = ImportWrapKey(wrapKey);
 
         var vaultKey = new byte[KeySize];
         if (!Aead.Decrypt(key, wrapped.Slice(1, NonceSize), AssociatedData, wrapped[CiphertextOffset..], vaultKey))
         {
-            throw new CryptographicException("Wrong Master Key or corrupted Vault Key.");
+            throw new CryptographicException("Wrong Wrap Key or corrupted Vault Key.");
         }
 
         return vaultKey;
     }
 
-    private static Key ImportMasterKey(ReadOnlySpan<byte> masterKey)
+    private static Key ImportWrapKey(ReadOnlySpan<byte> wrapKey)
     {
-        EnsureKeySize(masterKey, nameof(masterKey));
-        return Key.Import(Aead, masterKey, KeyBlobFormat.RawSymmetricKey);
+        EnsureKeySize(wrapKey, nameof(wrapKey));
+        return Key.Import(Aead, wrapKey, KeyBlobFormat.RawSymmetricKey);
     }
 
     private static void EnsureKeySize(ReadOnlySpan<byte> key, string paramName)
