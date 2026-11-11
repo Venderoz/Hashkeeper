@@ -1,91 +1,102 @@
-using System.Security.Cryptography;
-using NSec.Cryptography;
-
-namespace Hashkeeper.Crypto;
+﻿namespace Hashkeeper.Crypto;
 
 /// <summary>
-/// Generates the Vault Key and wraps (encrypts) it with the Wrap Key using XChaCha20-Poly1305.
+/// Generates the Vault Key and wraps (encrypts) it with the Wrap Key using
+/// the shared XChaCha20-Poly1305 implementation.
 /// </summary>
 /// <remarks>
-/// Implements section 6 of docs/crypto.md. The Wrap Key is derived from the Master Key with
-/// HKDF (section 5); the Master Key itself is never passed here. Wrapped format,
-/// <see cref="WrappedSize"/> bytes: <c>version (1) || nonce (24) || ciphertext (32) || tag (16)</c>.
-/// Every wrap uses a fresh random nonce. Keys are raw 32-byte values; callers own them and
-/// should clear them with <see cref="CryptographicOperations.ZeroMemory"/> when done.
+/// Implements section 6 of docs/crypto.md.
+/// The Wrap Key is derived from the Master Key with HKDF and is supplied by the caller;
+/// the Master Key itself is never passed to this class.
+///
+/// The serialized format is exactly 73 bytes:
+/// <c>version (1) || nonce (24) || ciphertext (32) || Poly1305 tag (16)</c>.
+/// Every production wrap uses a fresh random nonce. The fixed-nonce method is internal
+/// and exists only for deterministic cryptographic test vectors.
+///
+/// Keys are raw 32-byte values. Callers own them and should clear them with
+/// <see cref="CryptographicOperations.ZeroMemory(Span{byte})"/> when no longer needed.
 /// </remarks>
 public static class VaultKeyWrapper
 {
-    public const int KeySize = 32;
     public const byte FormatVersion = 1;
-    public const int WrappedSize = 1 + NonceSize + KeySize + TagSize;
 
-    private const int NonceSize = 24;
-    private const int TagSize = 16;
-    private const int CiphertextOffset = 1 + NonceSize;
+    private const int KeySize = XChaCha20Poly1305Cipher.KeySize;
+    private const int WrappedSize = 1
+        + XChaCha20Poly1305Cipher.NonceSize
+        + KeySize
+        + XChaCha20Poly1305Cipher.TagSize;
 
-    // Binds the ciphertext to its purpose and format version, so a wrapped Vault Key
-    // cannot be swapped with data encrypted for another purpose under the same key.
+    // Binds the ciphertext to its purpose and format version.
+    // This value is ASCII, has no terminating null byte, and is authenticated but not encrypted.
     private static readonly byte[] AssociatedData = "hashkeeper:vault-key:v1"u8.ToArray();
 
-    private static readonly AeadAlgorithm Aead = AeadAlgorithm.XChaCha20Poly1305;
-
-    /// <summary>Generates a new random 32-byte Vault Key.</summary>
+    /// <summary>Generates a new cryptographically random 32-byte Vault Key.</summary>
     public static byte[] GenerateVaultKey() => RandomNumberGenerator.GetBytes(KeySize);
 
     /// <summary>Encrypts <paramref name="vaultKey"/> with <paramref name="wrapKey"/>.</summary>
-    /// <exception cref="ArgumentException">A key is not <see cref="KeySize"/> bytes long.</exception>
+    /// <param name="vaultKey">The 32-byte Vault Key to wrap.</param>
+    /// <param name="wrapKey">The 32-byte Wrap Key derived from the Master Key.</param>
+    /// <returns>The 73-byte value <c>version || nonce || ciphertext || tag</c>.</returns>
+    /// <exception cref="ArgumentException">A key is not exactly 32 bytes long.</exception>
     public static byte[] Wrap(ReadOnlySpan<byte> vaultKey, ReadOnlySpan<byte> wrapKey)
     {
-        EnsureKeySize(vaultKey, nameof(vaultKey));
-        using var key = ImportWrapKey(wrapKey);
+        // Check if vaultKey's lenght is correct
+        // Only vaultKey's length is checked, because wrapKey is veryfied by XChaCha20-Poly1305Cypher class
+        if (vaultKey.Length != KeySize)
+        {
+            throw new ArgumentException($"The key must be {KeySize} bytes long.", nameof(vaultKey));
+        }
+
+        var encryptedPayload = XChaCha20Poly1305Cipher.Encrypt(
+            vaultKey,
+            wrapKey,
+            AssociatedData);
+
+        if (encryptedPayload.Length != WrappedSize - 1)
+        {
+            throw new InvalidOperationException("The encrypted Vault Key payload has an unexpected length.");
+        }
 
         var wrapped = new byte[WrappedSize];
         wrapped[0] = FormatVersion;
-        var nonce = wrapped.AsSpan(1, NonceSize);
-        RandomNumberGenerator.Fill(nonce);
-        Aead.Encrypt(key, nonce, AssociatedData, vaultKey, wrapped.AsSpan(CiphertextOffset));
+        encryptedPayload.CopyTo(wrapped.AsSpan(1));
         return wrapped;
     }
 
     /// <summary>Decrypts a wrapped Vault Key with <paramref name="wrapKey"/>.</summary>
-    /// <exception cref="ArgumentException"><paramref name="wrapKey"/> is not <see cref="KeySize"/> bytes long.</exception>
+    /// <param name="wrapped">The 73-byte wrapped Vault Key.</param>
+    /// <param name="wrapKey">The 32-byte Wrap Key derived from the Master Key.</param>
+    /// <returns>The original 32-byte Vault Key.</returns>
+    /// <exception cref="ArgumentException">The Wrap Key is not exactly 32 bytes long.</exception>
     /// <exception cref="CryptographicException">
-    /// The Wrap Key is wrong, or the wrapped data is corrupted, truncated or in an unsupported format.
+    /// The wrapped value has an invalid length or version, the Wrap Key is wrong,
+    /// or authentication fails. These failures use one generic error message.
     /// </exception>
     public static byte[] Unwrap(ReadOnlySpan<byte> wrapped, ReadOnlySpan<byte> wrapKey)
     {
-        if (wrapped.Length != WrappedSize)
+        // Check the length before reading byte zero. A malformed wrapped value must
+        // produce the same public error as an unsupported version or failed authentication.
+        if (wrapped.Length != WrappedSize || wrapped[0] != FormatVersion)
         {
-            throw new CryptographicException("The wrapped Vault Key has an invalid length.");
+            throw InvalidWrappedVaultKey();
         }
 
-        if (wrapped[0] != FormatVersion)
+        try
         {
-            throw new CryptographicException($"Unsupported wrapped Vault Key version: {wrapped[0]}.");
+            // Skip the version byte. The shared primitive expects nonce || ciphertext || tag.
+            return XChaCha20Poly1305Cipher.Decrypt(
+                wrapped[1..],
+                wrapKey,
+                AssociatedData);
         }
-
-        using var key = ImportWrapKey(wrapKey);
-
-        var vaultKey = new byte[KeySize];
-        if (!Aead.Decrypt(key, wrapped.Slice(1, NonceSize), AssociatedData, wrapped[CiphertextOffset..], vaultKey))
+        catch (CryptographicException)
         {
-            throw new CryptographicException("Wrong Wrap Key or corrupted Vault Key.");
-        }
-
-        return vaultKey;
-    }
-
-    private static Key ImportWrapKey(ReadOnlySpan<byte> wrapKey)
-    {
-        EnsureKeySize(wrapKey, nameof(wrapKey));
-        return Key.Import(Aead, wrapKey, KeyBlobFormat.RawSymmetricKey);
-    }
-
-    private static void EnsureKeySize(ReadOnlySpan<byte> key, string paramName)
-    {
-        if (key.Length != KeySize)
-        {
-            throw new ArgumentException($"The key must be {KeySize} bytes long.", paramName);
+            // Do not reveal whether the key was wrong or the stored data was modified.
+            throw InvalidWrappedVaultKey();
         }
     }
+
+    private static CryptographicException InvalidWrappedVaultKey() =>
+        new("Wrong Master Password or corrupted vault.");
 }
