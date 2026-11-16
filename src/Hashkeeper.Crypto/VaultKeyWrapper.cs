@@ -1,4 +1,7 @@
-﻿namespace Hashkeeper.Crypto;
+﻿using System.Security.Cryptography;
+using NSec.Cryptography;
+
+namespace Hashkeeper.Crypto;
 
 /// <summary>
 /// Generates the Vault Key and wraps (encrypts) it with the Wrap Key using

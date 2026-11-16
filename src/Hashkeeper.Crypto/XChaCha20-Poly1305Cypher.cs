@@ -1,4 +1,8 @@
-﻿[assembly: InternalsVisibleTo("Hashkeeper.Crypto.Tests")]
+﻿using System.Security.Cryptography;
+using NSec.Cryptography;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Hashkeeper.Crypto.Tests")]
 
 namespace Hashkeeper.Crypto;
 

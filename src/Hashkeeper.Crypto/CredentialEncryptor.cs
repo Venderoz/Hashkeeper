@@ -1,4 +1,7 @@
-﻿namespace Hashkeeper.Crypto;
+﻿using System.Security.Cryptography;
+using NSec.Cryptography;
+
+namespace Hashkeeper.Crypto;
 
 /// <summary>
 /// Encrypts and decrypts credential data using the vault key.
