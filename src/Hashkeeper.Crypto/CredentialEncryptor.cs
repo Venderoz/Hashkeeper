@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using NSec.Cryptography;
+using System.Text;
 
 namespace Hashkeeper.Crypto;
 
