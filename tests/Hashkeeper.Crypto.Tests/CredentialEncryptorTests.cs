@@ -1,6 +1,9 @@
-﻿namespace Hashkeeper.Crypto.Tests
+﻿using System.Security.Cryptography;
+using System.Text;
+
+namespace Hashkeeper.Crypto.Tests
 {
-    internal class CredentialEncryptorTests
+    public class CredentialEncryptorTests
     {
         private const string ValidEntryId = "3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b";
         private const byte FormatVersion = 0x01;
@@ -196,10 +199,10 @@
         [InlineData("3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6g")]
         [InlineData("3F2B8C1E-9A4D-4E6F-8B7A-1C2D3E4F5A6B")]
         [InlineData("zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz")]
-        public void Encrypt_InvalidEntryId_ThrowsArgumentException(string entryId)
+        public void Encrypt_InvalidEntryId_ThrowsArgumentException(string? entryId)
         {
             Assert.Throws<ArgumentException>(
-                () => CredentialEncryptor.Encrypt([], NewKey(), entryId));
+                () => CredentialEncryptor.Encrypt([], NewKey(), entryId!));
         }
 
         [Fact]

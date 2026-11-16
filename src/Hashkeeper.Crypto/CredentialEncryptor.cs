@@ -16,7 +16,7 @@ public static class CredentialEncryptor
     // 32 hexagonal numbers + 4 dashes
     private const byte EntryIdSize = 36;
 
-    private const string AssociatedDataPrefix = "hashkeeper:credential:v1:";
+    private const string AssociatedDataPrefix = "hashkeeper:entry:v1:";
 
     /// <summary>
     /// Encrypts credential data with the vault key.

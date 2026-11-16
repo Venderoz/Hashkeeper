@@ -24,8 +24,8 @@ public static class VaultKeyWrapper
 {
     public const byte FormatVersion = 1;
 
-    private const int KeySize = XChaCha20Poly1305Cipher.KeySize;
-    private const int WrappedSize = 1
+    internal const int KeySize = XChaCha20Poly1305Cipher.KeySize;
+    internal const int WrappedSize = 1
         + XChaCha20Poly1305Cipher.NonceSize
         + KeySize
         + XChaCha20Poly1305Cipher.TagSize;
