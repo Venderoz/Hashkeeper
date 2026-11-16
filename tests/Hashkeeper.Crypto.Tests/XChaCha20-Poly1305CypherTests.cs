@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Hashkeeper.Crypto.Tests
 {
-    internal class XChaCha20_Poly1305CypherTests
+    public class XChaCha20_Poly1305CypherTests
     {
         private static byte[] NewKey() =>
             RandomNumberGenerator.GetBytes(XChaCha20Poly1305Cipher.KeySize);
