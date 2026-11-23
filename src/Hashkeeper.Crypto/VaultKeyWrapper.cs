@@ -44,8 +44,8 @@ public static class VaultKeyWrapper
     /// <exception cref="ArgumentException">A key is not exactly 32 bytes long.</exception>
     public static byte[] Wrap(ReadOnlySpan<byte> vaultKey, ReadOnlySpan<byte> wrapKey)
     {
-        // Check if vaultKey's lenght is correct
-        // Only vaultKey's length is checked, because wrapKey is veryfied by XChaCha20-Poly1305Cypher class
+        // Check if vaultKey's length is correct
+        // Only vaultKey's length is checked, because wrapKey is verified by XChaCha20Poly1305Cipher
         if (vaultKey.Length != KeySize)
         {
             throw new ArgumentException($"The key must be {KeySize} bytes long.", nameof(vaultKey));
