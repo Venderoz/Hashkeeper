@@ -13,7 +13,7 @@ Every decision below is either an established standard or follows a design that 
 | Decision | Choice | Basis | Review status |
 |---|---|---|---|
 | Password hashing | Argon2id | RFC 9106, OWASP Password Storage Cheat Sheet | standard |
-| Argon2id cost | t = 3, 64 MiB, p = 1 | RFC 9106 second recommended option; p = 1 is the libsodium/NSec limit | standard minimum, can be raised later (§4.2) |
+| Argon2id cost | t = 3, 64 MiB, p = 1 | RFC 9106 second recommended option; p = 1 is the libsodium/NSec limit | standard minimum, can be raised later up to the §4.2 maximums |
 | Password normalisation | Unicode NFKC, then UTF-8 | NIST SP 800-63B §5.1.1.2 | standard |
 | Key hierarchy | random Vault Key wrapped by a key derived from the Master Password | Bitwarden Security Whitepaper | audited design |
 | Subkeys from the Master Key | HKDF-SHA256, one label per purpose | RFC 5869; Bitwarden stretches its master key the same way | standard |
@@ -93,8 +93,8 @@ Without normalisation, the same password typed on different systems (e.g. `ą` a
 
 | Parameter | v1 default | Constraints |
 |---|---|---|
-| Iterations `t` (NSec `NumberOfPasses`, libsodium `opslimit`) | **3** | ≥ 3 |
-| Memory `m` (NSec `MemorySize` in KiB) | **65 536 KiB** (64 MiB) | ≥ 65 536 KiB |
+| Iterations `t` (NSec `NumberOfPasses`, libsodium `opslimit`) | **3** | 3 ≤ `t` ≤ 16 |
+| Memory `m` (NSec `MemorySize` in KiB) | **65 536 KiB** (64 MiB) | 65 536 KiB ≤ `m` ≤ 1 048 576 KiB (1 GiB) |
 | libsodium `memlimit` (bytes) | **67 108 864** | = `m` × 1024 |
 | Parallelism `p` | **1** | MUST be 1 (libsodium and NSec support only 1) |
 | Salt | **16 bytes**, random | exactly 16 (NSec and `crypto_pwhash_SALTBYTES`) |
@@ -104,7 +104,8 @@ Defaults follow the RFC 9106 "second recommended option" (t = 3, 64 MiB), with p
 
 - The salt is generated once, when the vault is created, and regenerated on every Master Password change.
 - `t`, `m` and the salt are stored next to the wrapped Vault Key (local vault metadata; on the server they are returned by `/auth/prelogin`) so the defaults can be raised later without breaking existing vaults. Implementations MUST derive with the **stored** parameters, not the current defaults.
-- Implementations MUST reject stored parameters below the constraints above (protects against a malicious server downgrading the KDF).
+- Implementations MUST reject stored parameters below the minimums above (protects against a malicious server downgrading the KDF).
+- Implementations MUST also reject stored parameters above the maximums, so a malicious server cannot make unlock hang or run out of memory. The maximums leave room to raise the defaults.
 
 ### 4.3 Stored KDF descriptor
 
@@ -117,6 +118,8 @@ Defaults follow the RFC 9106 "second recommended option" (t = 3, 64 MiB), with p
   "salt": "<16 bytes, base64>"
 }
 ```
+
+Salt generation and Master Key derivation are implemented by `Argon2idMasterKeyDeriver` in `Hashkeeper.Crypto` (HK-15).
 
 ## 5. Subkey derivation: Auth Hash and Wrap Key (normative)
 
