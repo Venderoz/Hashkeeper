@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Hashkeeper.Crypto.Tests
 {
-    public class XChaCha20_Poly1305CypherTests
+    public class XChaCha20Poly1305CipherTests
     {
         private static byte[] NewKey() =>
             RandomNumberGenerator.GetBytes(XChaCha20Poly1305Cipher.KeySize);
