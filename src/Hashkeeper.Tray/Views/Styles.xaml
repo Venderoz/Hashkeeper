@@ -1,0 +1,177 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Palette sampled from the app icon (Assets/hashkeeper.ico). -->
+    <Color x:Key="NavyColor">#1C2333</Color>
+    <Color x:Key="CyanColor">#5EF2F8</Color>
+    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource NavyColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#242E42" />
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#2C3850" />
+    <SolidColorBrush x:Key="LineBrush" Color="#3A4760" />
+    <SolidColorBrush x:Key="TextBrush" Color="#E8F6F8" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#93A3B8" />
+    <SolidColorBrush x:Key="DisabledTextBrush" Color="#617089" />
+    <SolidColorBrush x:Key="CyanBrush" Color="{StaticResource CyanColor}" />
+    <SolidColorBrush x:Key="CyanHoverBrush" Color="#8FF6FA" />
+    <SolidColorBrush x:Key="CyanPressedBrush" Color="#3FD4DC" />
+    <SolidColorBrush x:Key="GoldBrush" Color="#F8CC64" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#FF8A80" />
+
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
+
+    <Style x:Key="VaultWindowStyle" TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource BackgroundBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <Style x:Key="HeadingStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource CyanBrush}" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- Hints and messages collapse when they have no text. -->
+    <Style x:Key="HintStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+        <Style.Triggers>
+            <Trigger Property="Text" Value="">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Validation hints use the icon's gold, errors a soft red. -->
+    <Style x:Key="ValidationStyle" TargetType="TextBlock" BasedOn="{StaticResource HintStyle}">
+        <Setter Property="Foreground" Value="{StaticResource GoldBrush}" />
+        <Setter Property="Margin" Value="0,8,0,0" />
+    </Style>
+
+    <Style x:Key="ErrorStyle" TargetType="TextBlock" BasedOn="{StaticResource HintStyle}">
+        <Setter Property="Foreground" Value="{StaticResource ErrorBrush}" />
+        <Setter Property="Margin" Value="0,8,0,0" />
+    </Style>
+
+    <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+        <Setter Property="Padding" Value="0,0,0,4" />
+    </Style>
+
+    <Style TargetType="PasswordBox">
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource CyanBrush}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource CyanBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Frame"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource MutedTextBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource CyanBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="BusyStyle" TargetType="ProgressBar">
+        <Setter Property="IsIndeterminate" Value="True" />
+        <Setter Property="Height" Value="3" />
+        <Setter Property="Margin" Value="0,12,0,0" />
+        <Setter Property="Foreground" Value="{StaticResource CyanBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Visibility" Value="{Binding IsBusy, Converter={StaticResource BooleanToVisibility}}" />
+    </Style>
+
+    <!-- Buttons: rounded, with hover, pressed, keyboard-focus (gold) and disabled states. -->
+    <Style x:Key="ButtonBaseStyle" TargetType="Button">
+        <Setter Property="MinWidth" Value="104" />
+        <Setter Property="Padding" Value="14,7" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Frame"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                            <Setter TargetName="Frame" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
+        <Setter Property="Background" Value="{StaticResource CyanBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CyanBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource BackgroundBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource CyanHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource CyanHoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource CyanPressedBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource CyanPressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonBaseStyle}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource CyanBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

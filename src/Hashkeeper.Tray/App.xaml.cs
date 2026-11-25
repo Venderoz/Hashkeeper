@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using H.NotifyIcon;
+using Hashkeeper.Tray.Services.Vault;
 using Hashkeeper.Tray.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,7 +21,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         var builder = Host.CreateApplicationBuilder(e.Args);
-        builder.Services.AddTrayServices();
+        builder.Services.AddTrayServices(builder.Configuration["VaultPath"]);
         _host = builder.Build();
         _host.Start();
 
@@ -30,12 +31,21 @@ public partial class App : Application
         // The icon is defined as a resource, not in a window, so it has to be created explicitly.
         // Efficiency mode stays off so the app reacts immediately to the tray menu and, later, the hotkey.
         _trayIcon.ForceCreate(false);
+
+        // First run: create the vault. Otherwise: ask for the Master Password right away.
+        _host.Services.GetRequiredService<IVaultWindowService>().ShowCreateOrUnlock();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _trayIcon?.Dispose();
+        // Detach the view model first, so nothing can update the icon after it is released.
+        if (_trayIcon is not null)
+        {
+            _trayIcon.DataContext = null;
+            _trayIcon.Dispose();
+        }
 
+        // Disposing the host locks the vault, which clears the Vault Key from memory.
         if (_host is not null)
         {
             _host.StopAsync().GetAwaiter().GetResult();
