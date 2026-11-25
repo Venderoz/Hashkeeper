@@ -66,5 +66,20 @@ public class TrayIconViewModelTests
         Assert.Contains(nameof(TrayIconViewModel.ToolTipText), changed);
     }
 
+    [Fact]
+    public void Dispose_StopsReactingToLockStateChanges()
+    {
+        var session = FakeVaultSession.WithVault("password1234");
+        session.TryUnlock("password1234");
+        var viewModel = NewViewModel(session);
+        var changes = 0;
+        viewModel.PropertyChanged += (_, _) => changes++;
+
+        viewModel.Dispose();
+        session.Lock();
+
+        Assert.Equal(0, changes);
+    }
+
     private TrayIconViewModel NewViewModel(FakeVaultSession session) => new(_shutdown, session, _windows);
 }

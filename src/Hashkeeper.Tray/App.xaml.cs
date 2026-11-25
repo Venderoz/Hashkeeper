@@ -38,8 +38,14 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _trayIcon?.Dispose();
+        // Detach the view model first, so nothing can update the icon after it is released.
+        if (_trayIcon is not null)
+        {
+            _trayIcon.DataContext = null;
+            _trayIcon.Dispose();
+        }
 
+        // Disposing the host locks the vault, which clears the Vault Key from memory.
         if (_host is not null)
         {
             _host.StopAsync().GetAwaiter().GetResult();

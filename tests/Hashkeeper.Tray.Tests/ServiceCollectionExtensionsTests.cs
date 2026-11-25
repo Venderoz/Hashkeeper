@@ -62,6 +62,34 @@ public class ServiceCollectionExtensionsTests
         Assert.NotSame(provider.GetRequiredService<CreateVaultViewModel>(), provider.GetRequiredService<CreateVaultViewModel>());
     }
 
+    // Regression: exiting while unlocked locked the vault during disposal, and the tray view model then
+    // updated the already released tray icon (ObjectDisposedException "TrayIcon is disposed").
+    [Fact]
+    public void DisposingTheContainer_WhileUnlocked_DoesNotNotifyTheTrayIcon()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hashkeeper-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var provider = new ServiceCollection().AddTrayServices(Path.Combine(directory, "vault.db")).BuildServiceProvider();
+            var viewModel = provider.GetRequiredService<TrayIconViewModel>();
+            var session = provider.GetRequiredService<IVaultSession>();
+            session.CreateVault("correct horse battery");
+            Assert.True(session.IsUnlocked);
+            viewModel.PropertyChanged += (_, _) => throw new ObjectDisposedException("TrayIcon");
+
+            provider.Dispose();
+
+            Assert.False(session.IsUnlocked);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
     // ValidateOnBuild catches missing registrations for every service, not only the ones resolved here.
     private static ServiceProvider BuildProvider() =>
         new ServiceCollection()

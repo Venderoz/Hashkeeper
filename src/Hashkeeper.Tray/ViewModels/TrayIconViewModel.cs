@@ -6,7 +6,11 @@ using Hashkeeper.Tray.Services.Vault;
 namespace Hashkeeper.Tray.ViewModels;
 
 /// <summary>State and commands of the tray icon and its context menu.</summary>
-public sealed partial class TrayIconViewModel : ObservableObject
+/// <remarks>
+/// Disposing unsubscribes from the vault session. The container disposes this view model before the
+/// session (reverse creation order), so locking the vault on exit no longer updates the released tray icon.
+/// </remarks>
+public sealed partial class TrayIconViewModel : ObservableObject, IDisposable
 {
     private readonly IShutdownService _shutdownService;
     private readonly IVaultSession _session;
@@ -19,8 +23,12 @@ public sealed partial class TrayIconViewModel : ObservableObject
         _windows = windows;
 
         // May be raised on a background thread; WPF marshals property-change notifications for bindings.
-        _session.LockStateChanged += (_, _) => RefreshLockState();
+        _session.LockStateChanged += OnLockStateChanged;
     }
+
+    public void Dispose() => _session.LockStateChanged -= OnLockStateChanged;
+
+    private void OnLockStateChanged(object? sender, EventArgs e) => RefreshLockState();
 
     public bool IsUnlocked => _session.IsUnlocked;
 
