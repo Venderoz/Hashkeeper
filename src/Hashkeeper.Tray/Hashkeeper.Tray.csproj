@@ -4,6 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\hashkeeper.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Hashkeeper.Crypto\Hashkeeper.Crypto.csproj" />
     <ProjectReference Include="..\Hashkeeper.Contracts\Hashkeeper.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Used by the tray icon (pack URI /Assets/hashkeeper.ico); the exe icon comes from ApplicationIcon. -->
+    <Resource Include="Assets\hashkeeper.ico" />
   </ItemGroup>
 
   <ItemGroup>

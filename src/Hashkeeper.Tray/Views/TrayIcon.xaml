@@ -11,14 +11,8 @@
                     d:DataContext="{d:DesignInstance Type=vm:TrayIconViewModel}"
                     ToolTipText="{Binding ToolTipText}"
                     MenuActivation="RightClick"
-                    NoLeftClickDelay="True">
-        <tb:TaskbarIcon.IconSource>
-            <!-- Placeholder icon generated at runtime until the app has a designed .ico file. -->
-            <tb:GeneratedIconSource Text="H"
-                                    FontWeight="Bold"
-                                    Foreground="White"
-                                    Background="#1F6FEB" />
-        </tb:TaskbarIcon.IconSource>
+                    NoLeftClickDelay="True"
+                    IconSource="/Assets/hashkeeper.ico">
         <tb:TaskbarIcon.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="Exit" Command="{Binding ExitCommand}" />
