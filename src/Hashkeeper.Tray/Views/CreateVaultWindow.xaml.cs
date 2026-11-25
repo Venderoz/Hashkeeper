@@ -16,13 +16,13 @@ public partial class CreateVaultWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         viewModel.Completed += (_, _) => Close();
-        Loaded += (_, _) => PasswordInput.Focus();
+        Loaded += (_, _) => PasswordInput.FocusInput();
     }
 
     // IsCancel only closes dialogs shown with ShowDialog; this window is shown with Show().
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
 
-    // PasswordBox.Password cannot be data-bound in WPF, so the view copies it into the view model.
+    // A password cannot be data-bound in WPF, so the view copies it into the view model.
     private void OnPasswordChanged(object sender, RoutedEventArgs e) => _viewModel.Password = PasswordInput.Password;
 
     private void OnConfirmationChanged(object sender, RoutedEventArgs e) => _viewModel.Confirmation = ConfirmationInput.Password;

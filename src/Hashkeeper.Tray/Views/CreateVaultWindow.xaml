@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:Hashkeeper.Tray.ViewModels"
+        xmlns:controls="clr-namespace:Hashkeeper.Tray.Views.Controls"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:CreateVaultViewModel}"
         Title="Hashkeeper – Create vault"
@@ -22,10 +23,10 @@
         </TextBlock>
 
         <Label Content="_Master Password" Target="{Binding ElementName=PasswordInput}" />
-        <PasswordBox x:Name="PasswordInput" PasswordChanged="OnPasswordChanged" />
+        <controls:RevealablePasswordBox x:Name="PasswordInput" PasswordChanged="OnPasswordChanged" />
 
         <Label Content="_Confirm Master Password" Target="{Binding ElementName=ConfirmationInput}" Margin="0,12,0,0" />
-        <PasswordBox x:Name="ConfirmationInput" PasswordChanged="OnConfirmationChanged" />
+        <controls:RevealablePasswordBox x:Name="ConfirmationInput" PasswordChanged="OnConfirmationChanged" />
 
         <TextBlock Style="{StaticResource ValidationStyle}" Text="{Binding ValidationMessage}" />
         <TextBlock Style="{StaticResource ErrorStyle}" Text="{Binding ErrorMessage}" />
