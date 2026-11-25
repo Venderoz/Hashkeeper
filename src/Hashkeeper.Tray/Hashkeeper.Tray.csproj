@@ -7,8 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="H.NotifyIcon.Wpf" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Hashkeeper.Crypto\Hashkeeper.Crypto.csproj" />
     <ProjectReference Include="..\Hashkeeper.Contracts\Hashkeeper.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hashkeeper.Tray.Tests" />
   </ItemGroup>
 
 </Project>

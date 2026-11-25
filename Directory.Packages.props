@@ -9,6 +9,12 @@
     <PackageVersion Include="NSec.Cryptography" Version="26.4.0" />
   </ItemGroup>
 
+  <ItemGroup Label="Tray">
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
+  </ItemGroup>
+
   <ItemGroup Label="Testing">
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
