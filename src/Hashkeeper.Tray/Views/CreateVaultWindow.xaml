@@ -27,13 +27,13 @@
         <Label Content="_Confirm Master Password" Target="{Binding ElementName=ConfirmationInput}" Margin="0,12,0,0" />
         <PasswordBox x:Name="ConfirmationInput" PasswordChanged="OnConfirmationChanged" />
 
-        <TextBlock Style="{StaticResource HintStyle}" Text="{Binding ValidationMessage}" Margin="0,8,0,0" />
+        <TextBlock Style="{StaticResource ValidationStyle}" Text="{Binding ValidationMessage}" />
         <TextBlock Style="{StaticResource ErrorStyle}" Text="{Binding ErrorMessage}" />
         <ProgressBar Style="{StaticResource BusyStyle}" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="Create vault" Command="{Binding CreateCommand}" IsDefault="True" Style="{StaticResource PrimaryButtonStyle}" />
-            <Button Content="Cancel" IsCancel="True" Margin="8,0,0,0" Style="{StaticResource SecondaryButtonStyle}" />
+            <Button Content="Cancel" IsCancel="True" Click="OnCancel" Margin="8,0,0,0" Style="{StaticResource SecondaryButtonStyle}" />
         </StackPanel>
     </StackPanel>
 </Window>

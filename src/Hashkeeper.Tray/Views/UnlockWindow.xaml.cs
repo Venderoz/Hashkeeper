@@ -11,6 +11,7 @@ public partial class UnlockWindow : Window
     public UnlockWindow(UnlockViewModel viewModel)
     {
         InitializeComponent();
+        WindowTheme.Apply(this);
 
         _viewModel = viewModel;
         DataContext = viewModel;
@@ -22,6 +23,9 @@ public partial class UnlockWindow : Window
         };
         Loaded += (_, _) => PasswordInput.Focus();
     }
+
+    // IsCancel only closes dialogs shown with ShowDialog; this window is shown with Show().
+    private void OnCancel(object sender, RoutedEventArgs e) => Close();
 
     // PasswordBox.Password cannot be data-bound in WPF, so the view copies it into the view model.
     private void OnPasswordChanged(object sender, RoutedEventArgs e) => _viewModel.Password = PasswordInput.Password;
