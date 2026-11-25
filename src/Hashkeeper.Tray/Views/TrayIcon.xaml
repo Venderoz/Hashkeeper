@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
+                    xmlns:vm="clr-namespace:Hashkeeper.Tray.ViewModels"
+                    mc:Ignorable="d">
+
+    <!-- The tray icon. App.OnStartup sets its DataContext to TrayIconViewModel and creates it. -->
+    <tb:TaskbarIcon x:Key="TrayIcon"
+                    d:DataContext="{d:DesignInstance Type=vm:TrayIconViewModel}"
+                    ToolTipText="{Binding ToolTipText}"
+                    MenuActivation="RightClick"
+                    NoLeftClickDelay="True">
+        <tb:TaskbarIcon.IconSource>
+            <!-- Placeholder icon generated at runtime until the app has a designed .ico file. -->
+            <tb:GeneratedIconSource Text="H"
+                                    FontWeight="Bold"
+                                    Foreground="White"
+                                    Background="#1F6FEB" />
+        </tb:TaskbarIcon.IconSource>
+        <tb:TaskbarIcon.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Exit" Command="{Binding ExitCommand}" />
+            </ContextMenu>
+        </tb:TaskbarIcon.ContextMenu>
+    </tb:TaskbarIcon>
+
+</ResourceDictionary>
