@@ -1,41 +1,70 @@
-using Hashkeeper.Tray.Services;
 using Hashkeeper.Tray.ViewModels;
 
 namespace Hashkeeper.Tray.Tests;
 
 public class TrayIconViewModelTests
 {
+    private readonly FakeShutdownService _shutdown = new();
+    private readonly FakeVaultWindowService _windows = new();
+
     [Fact]
     public void ExitCommand_ShutsTheAppDown()
     {
-        var shutdownService = new FakeShutdownService();
-        var viewModel = new TrayIconViewModel(shutdownService);
+        var viewModel = NewViewModel(new FakeVaultSession());
 
         viewModel.ExitCommand.Execute(null);
 
-        Assert.Equal(1, shutdownService.ShutdownCalls);
+        Assert.Equal(1, _shutdown.ShutdownCalls);
     }
 
     [Fact]
-    public void ExitCommand_CanAlwaysExecute()
+    public void OpenVaultCommand_ShowsTheCreateOrUnlockWindow()
     {
-        var viewModel = new TrayIconViewModel(new FakeShutdownService());
+        var viewModel = NewViewModel(new FakeVaultSession());
 
-        Assert.True(viewModel.ExitCommand.CanExecute(null));
+        viewModel.OpenVaultCommand.Execute(null);
+
+        Assert.Equal(1, _windows.ShowCalls);
     }
 
     [Fact]
-    public void ToolTipText_IsAppName()
+    public void LockVaultCommand_LocksTheSession()
     {
-        var viewModel = new TrayIconViewModel(new FakeShutdownService());
+        var session = FakeVaultSession.WithVault("password1234");
+        session.TryUnlock("password1234");
+        var viewModel = NewViewModel(session);
 
-        Assert.Equal("Hashkeeper", viewModel.ToolTipText);
+        viewModel.LockVaultCommand.Execute(null);
+
+        Assert.False(session.IsUnlocked);
+        Assert.True(viewModel.IsLocked);
     }
 
-    private sealed class FakeShutdownService : IShutdownService
+    [Fact]
+    public void OpenVaultHeader_DependsOnWhetherAVaultExists()
     {
-        public int ShutdownCalls { get; private set; }
-
-        public void Shutdown() => ShutdownCalls++;
+        Assert.Equal("Create vault…", NewViewModel(new FakeVaultSession()).OpenVaultHeader);
+        Assert.Equal("Unlock vault…", NewViewModel(FakeVaultSession.WithVault("password1234")).OpenVaultHeader);
     }
+
+    [Fact]
+    public void LockStateChange_UpdatesStateAndToolTip()
+    {
+        var session = FakeVaultSession.WithVault("password1234");
+        var viewModel = NewViewModel(session);
+        var changed = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        Assert.Equal("Hashkeeper – locked", viewModel.ToolTipText);
+
+        session.TryUnlock("password1234");
+
+        Assert.True(viewModel.IsUnlocked);
+        Assert.False(viewModel.IsLocked);
+        Assert.Equal("Hashkeeper – unlocked", viewModel.ToolTipText);
+        Assert.Contains(nameof(TrayIconViewModel.IsUnlocked), changed);
+        Assert.Contains(nameof(TrayIconViewModel.IsLocked), changed);
+        Assert.Contains(nameof(TrayIconViewModel.ToolTipText), changed);
+    }
+
+    private TrayIconViewModel NewViewModel(FakeVaultSession session) => new(_shutdown, session, _windows);
 }
